@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { Product, Sale, Expense } from '../types';
+import { Product, Sale, Expense, SaleProduct } from '../types';
 import { supabase } from '../services/supabase';
 
 interface AppContextData {
@@ -16,13 +16,14 @@ interface AppContextData {
   addProduct: (product: Omit<Product, 'id' | 'created_at'>) => Promise<void>;
   updateProduct: (product: Omit<Product, 'created_at'>) => Promise<void>;
   deleteProduct: (productId: number) => Promise<void>;
-  addSale: (sale: Omit<Sale, 'id' | 'created_at'>) => Promise<void>;
+  addSale: (sale: Omit<Sale, 'id' | 'created_at'> & { products: SaleProduct[] }) => Promise<void>;
   fetchSales: () => Promise<void>;
+  fetchProducts: () => Promise<void>;
+  fetchExpenses: () => Promise<void>;
   updateMonthlyGoal: (amount: number) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id' | 'created_at'>) => Promise<void>;
   updateExpense: (expense: Omit<Expense, 'created_at'>) => Promise<void>;
   deleteExpense: (expenseId: number) => Promise<void>;
-  fetchExpenses: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextData>({} as AppContextData);
@@ -143,7 +144,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  const addSale = useCallback(async (sale: Omit<Sale, 'id' | 'created_at'>) => {
+  const addSale = useCallback(async (sale: Omit<Sale, 'id' | 'created_at'> & { products: SaleProduct[] }) => {
     try {
       setLoading(true);
 
@@ -322,11 +323,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteProduct,
         addSale,
         fetchSales,
+        fetchProducts,
+        fetchExpenses,
         updateMonthlyGoal,
         addExpense,
         updateExpense,
         deleteExpense,
-        fetchExpenses,
       }}
     >
       {children}

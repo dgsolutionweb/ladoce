@@ -1,45 +1,42 @@
 import {
   Box,
   Button,
-  Container,
-  Flex,
-  Heading,
+  Grid,
+  HStack,
+  Icon,
   SimpleGrid,
+  Text,
+  VStack,
+  useColorModeValue,
+  Select,
   Stat,
   StatLabel,
   StatNumber,
+  StatHelpText,
+  Progress,
   Table,
   Thead,
   Tbody,
   Tr,
   Th,
   Td,
-  useDisclosure,
-  VStack,
-  HStack,
-  Text,
-  Select,
-  Tabs,
-  TabList,
-  TabPanels,
-  Tab,
-  TabPanel,
-  useColorModeValue,
-  Icon,
 } from '@chakra-ui/react';
-import { useState, useMemo } from 'react';
+import { FiTrendingUp, FiTrendingDown, FiDollarSign, FiShoppingBag, FiTarget, FiPieChart } from 'react-icons/fi';
 import { useApp } from '../contexts/AppContext';
 import { formatCurrency } from '../utils/format';
-import ExpenseModal from '../components/ExpenseModal';
-import { FiPlus, FiTrendingUp, FiTrendingDown, FiDollarSign } from 'react-icons/fi';
+import { useState, useMemo } from 'react';
 
 const Reports = () => {
-  const { sales, expenses } = useApp();
+  const { sales, expenses, monthlyGoal } = useApp();
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const bgColor = useColorModeValue('white', 'gray.800');
 
-  const filteredData = useMemo(() => {
+  const bgCard = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const iconBg = useColorModeValue('brand.50', 'brand.900');
+  const iconColor = useColorModeValue('brand.600', 'brand.200');
+  const textColor = useColorModeValue('gray.600', 'gray.400');
+
+  const data = useMemo(() => {
     const [year, month] = selectedMonth.split('-');
     const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
     const endDate = new Date(parseInt(year), parseInt(month), 0);
@@ -54,198 +51,258 @@ const Reports = () => {
       return expenseDate >= startDate && expenseDate <= endDate;
     });
 
-    const totalSales = filteredSales.reduce((acc, sale) => acc + sale.total_amount, 0);
-    const totalExpenses = filteredExpenses.reduce((acc, expense) => acc + expense.amount, 0);
-    const netProfit = totalSales - totalExpenses;
-    const averageTicket = filteredSales.length > 0 ? totalSales / filteredSales.length : 0;
-    const deliveryCount = filteredSales.filter(sale => sale.delivery).length;
+    const totalSales = filteredSales.reduce((total, sale) => total + sale.total_amount, 0);
+    const totalExpenses = filteredExpenses.reduce((total, expense) => total + expense.amount, 0);
+    const profit = totalSales - totalExpenses;
+    const goalProgress = (totalSales / monthlyGoal) * 100;
 
-    const paymentMethods = {
-      cash: filteredSales.filter(sale => sale.payment_method === 'cash').length,
-      credit: filteredSales.filter(sale => sale.payment_method === 'credit').length,
-      debit: filteredSales.filter(sale => sale.payment_method === 'debit').length,
-      pix: filteredSales.filter(sale => sale.payment_method === 'pix').length,
-    };
+    const salesByProduct = new Map<string, { quantity: number; revenue: number }>();
+    filteredSales.forEach(sale => {
+      sale.sale_items?.forEach(item => {
+        const current = salesByProduct.get(item.product_name) || { quantity: 0, revenue: 0 };
+        salesByProduct.set(item.product_name, {
+          quantity: current.quantity + item.quantity,
+          revenue: current.revenue + (item.price_at_time * item.quantity),
+        });
+      });
+    });
+
+    const topProducts = Array.from(salesByProduct.entries())
+      .map(([name, stats]) => ({
+        name,
+        quantity: stats.quantity,
+        revenue: stats.revenue,
+      }))
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5);
 
     const expensesByCategory = filteredExpenses.reduce((acc, expense) => {
       acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
       return acc;
     }, {} as Record<string, number>);
 
+    const topExpenses = Object.entries(expensesByCategory)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, 5);
+
     return {
       totalSales,
       totalExpenses,
-      netProfit,
-      averageTicket,
-      deliveryCount,
-      paymentMethods,
-      expensesByCategory,
-      sales: filteredSales,
-      expenses: filteredExpenses,
+      profit,
+      goalProgress,
+      topProducts,
+      topExpenses,
+      salesCount: filteredSales.length,
+      expensesCount: filteredExpenses.length,
     };
-  }, [sales, expenses, selectedMonth]);
+  }, [sales, expenses, selectedMonth, monthlyGoal]);
+
+  const StatCard = ({ label, value, icon, color, helpText }: { label: string; value: string; icon: any; color?: string; helpText?: string }) => (
+    <Box
+      p={6}
+      bg={bgCard}
+      borderRadius="xl"
+      borderWidth="1px"
+      borderColor={borderColor}
+      transition="all 0.2s"
+      _hover={{
+        transform: 'translateY(-4px)',
+        shadow: 'lg',
+      }}
+    >
+      <HStack spacing={4} mb={4}>
+        <Box
+          p={3}
+          borderRadius="xl"
+          bg={iconBg}
+          color={iconColor}
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon as={icon} boxSize={5} />
+        </Box>
+        <VStack align="start" spacing={1}>
+          <Text fontSize="sm" color={textColor} fontWeight="medium">
+            {label}
+          </Text>
+          <Text fontSize="2xl" fontWeight="bold" color={color}>
+            {value}
+          </Text>
+          {helpText && (
+            <Text fontSize="sm" color={textColor}>
+              {helpText}
+            </Text>
+          )}
+        </VStack>
+      </HStack>
+    </Box>
+  );
 
   return (
-    <Container maxW="container.xl" py={8}>
-      <Flex justify="space-between" align="center" mb={8}>
-        <Heading size="lg">Relatórios</Heading>
-        <HStack spacing={4}>
-          <Select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            w="200px"
-          >
-            {Array.from({ length: 12 }, (_, i) => {
-              const date = new Date();
-              date.setMonth(date.getMonth() - i);
-              const value = date.toISOString().slice(0, 7);
-              const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-              return (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              );
-            })}
-          </Select>
-          <Button leftIcon={<FiPlus />} colorScheme="purple" onClick={onOpen}>
-            Nova Despesa
-          </Button>
-        </HStack>
-      </Flex>
+    <VStack spacing={8} align="stretch">
+      <HStack justify="space-between">
+        <Text fontSize="2xl" fontWeight="bold">
+          Relatórios
+        </Text>
+        <Select
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          w="200px"
+        >
+          {Array.from({ length: 12 }, (_, i) => {
+            const date = new Date();
+            date.setMonth(date.getMonth() - i);
+            const value = date.toISOString().slice(0, 7);
+            const label = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+            return (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            );
+          })}
+        </Select>
+      </HStack>
 
-      <SimpleGrid columns={{ base: 1, md: 3 }} spacing={6} mb={8}>
-        <Stat p={4} bg={bgColor} borderRadius="lg" shadow="sm">
-          <StatLabel>Receita Bruta</StatLabel>
-          <StatNumber color="green.500">
-            <Icon as={FiTrendingUp} mr={2} />
-            {formatCurrency(filteredData.totalSales)}
-          </StatNumber>
-        </Stat>
-        <Stat p={4} bg={bgColor} borderRadius="lg" shadow="sm">
-          <StatLabel>Despesas Totais</StatLabel>
-          <StatNumber color="red.500">
-            <Icon as={FiTrendingDown} mr={2} />
-            {formatCurrency(filteredData.totalExpenses)}
-          </StatNumber>
-        </Stat>
-        <Stat p={4} bg={bgColor} borderRadius="lg" shadow="sm">
-          <StatLabel>Lucro Líquido</StatLabel>
-          <StatNumber color={filteredData.netProfit >= 0 ? "green.500" : "red.500"}>
-            <Icon as={FiDollarSign} mr={2} />
-            {formatCurrency(filteredData.netProfit)}
-          </StatNumber>
-        </Stat>
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+        <StatCard
+          label="Vendas"
+          value={formatCurrency(data.totalSales)}
+          icon={FiTrendingUp}
+          color="green.500"
+          helpText={`${data.salesCount} vendas no período`}
+        />
+        <StatCard
+          label="Despesas"
+          value={formatCurrency(data.totalExpenses)}
+          icon={FiTrendingDown}
+          color="red.500"
+          helpText={`${data.expensesCount} despesas no período`}
+        />
+        <StatCard
+          label="Lucro"
+          value={formatCurrency(data.profit)}
+          icon={FiDollarSign}
+          color={data.profit >= 0 ? 'green.500' : 'red.500'}
+        />
+        <Box
+          p={6}
+          bg={bgCard}
+          borderRadius="xl"
+          borderWidth="1px"
+          borderColor={borderColor}
+          transition="all 0.2s"
+          _hover={{
+            transform: 'translateY(-4px)',
+            shadow: 'lg',
+          }}
+        >
+          <HStack spacing={4} mb={4}>
+            <Box
+              p={3}
+              borderRadius="xl"
+              bg={iconBg}
+              color={iconColor}
+              display="flex"
+              alignItems="center"
+              justifyContent="center"
+            >
+              <Icon as={FiTarget} boxSize={5} />
+            </Box>
+            <VStack align="start" spacing={1}>
+              <Text fontSize="sm" color={textColor} fontWeight="medium">
+                Meta Mensal
+              </Text>
+              <Text fontSize="2xl" fontWeight="bold" color={data.goalProgress >= 100 ? 'green.500' : undefined}>
+                {data.goalProgress.toFixed(1)}%
+              </Text>
+            </VStack>
+          </HStack>
+          <Progress
+            value={data.goalProgress}
+            colorScheme={data.goalProgress >= 100 ? 'green' : 'brand'}
+            borderRadius="full"
+            size="sm"
+            mb={2}
+            hasStripe={data.goalProgress < 100}
+            isAnimated={data.goalProgress < 100}
+          />
+          <Text fontSize="sm" color={textColor}>
+            Meta: {formatCurrency(monthlyGoal)}
+          </Text>
+        </Box>
       </SimpleGrid>
 
-      <Tabs variant="enclosed" mb={8}>
-        <TabList>
-          <Tab>Vendas</Tab>
-          <Tab>Despesas</Tab>
-        </TabList>
+      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6}>
+        <Box
+          p={6}
+          bg={bgCard}
+          borderRadius="xl"
+          borderWidth="1px"
+          borderColor={borderColor}
+        >
+          <HStack spacing={4} mb={6}>
+            <Icon as={FiShoppingBag} color={iconColor} boxSize={5} />
+            <Text fontSize="lg" fontWeight="semibold">
+              Produtos Mais Vendidos
+            </Text>
+          </HStack>
+          <Table variant="simple" size="sm">
+            <Thead>
+              <Tr>
+                <Th>Produto</Th>
+                <Th isNumeric>Qtd.</Th>
+                <Th isNumeric>Receita</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {data.topProducts.map((product, index) => (
+                <Tr key={index}>
+                  <Td>{product.name}</Td>
+                  <Td isNumeric>{product.quantity}</Td>
+                  <Td isNumeric>{formatCurrency(product.revenue)}</Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </Box>
 
-        <TabPanels>
-          <TabPanel p={0} pt={4}>
-            <VStack spacing={6} align="stretch">
-              <Box bg={bgColor} p={4} borderRadius="lg" shadow="sm">
-                <Heading size="md" mb={4}>Métodos de Pagamento</Heading>
-                <SimpleGrid columns={{ base: 2, md: 4 }} spacing={4}>
-                  <Stat>
-                    <StatLabel>Dinheiro</StatLabel>
-                    <StatNumber>{filteredData.paymentMethods.cash}</StatNumber>
-                  </Stat>
-                  <Stat>
-                    <StatLabel>Crédito</StatLabel>
-                    <StatNumber>{filteredData.paymentMethods.credit}</StatNumber>
-                  </Stat>
-                  <Stat>
-                    <StatLabel>Débito</StatLabel>
-                    <StatNumber>{filteredData.paymentMethods.debit}</StatNumber>
-                  </Stat>
-                  <Stat>
-                    <StatLabel>PIX</StatLabel>
-                    <StatNumber>{filteredData.paymentMethods.pix}</StatNumber>
-                  </Stat>
-                </SimpleGrid>
-              </Box>
-
-              <Box bg={bgColor} p={4} borderRadius="lg" shadow="sm">
-                <Heading size="md" mb={4}>Vendas do Período</Heading>
-                <Table variant="simple">
-                  <Thead>
-                    <Tr>
-                      <Th>Data</Th>
-                      <Th>Valor</Th>
-                      <Th>Pagamento</Th>
-                      <Th>Entrega</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {filteredData.sales.map((sale) => (
-                      <Tr key={sale.id}>
-                        <Td>{new Date(sale.date).toLocaleDateString('pt-BR')}</Td>
-                        <Td>{formatCurrency(sale.total_amount)}</Td>
-                        <Td>{sale.payment_method}</Td>
-                        <Td>{sale.delivery ? 'Sim' : 'Não'}</Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              </Box>
-            </VStack>
-          </TabPanel>
-
-          <TabPanel p={0} pt={4}>
-            <VStack spacing={6} align="stretch">
-              <Box bg={bgColor} p={4} borderRadius="lg" shadow="sm">
-                <Heading size="md" mb={4}>Despesas por Categoria</Heading>
-                <Table variant="simple">
-                  <Thead>
-                    <Tr>
-                      <Th>Categoria</Th>
-                      <Th>Total</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {Object.entries(filteredData.expensesByCategory).map(([category, total]) => (
-                      <Tr key={category}>
-                        <Td>{category}</Td>
-                        <Td>{formatCurrency(total)}</Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              </Box>
-
-              <Box bg={bgColor} p={4} borderRadius="lg" shadow="sm">
-                <Heading size="md" mb={4}>Despesas do Período</Heading>
-                <Table variant="simple">
-                  <Thead>
-                    <Tr>
-                      <Th>Data</Th>
-                      <Th>Descrição</Th>
-                      <Th>Categoria</Th>
-                      <Th>Valor</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {filteredData.expenses.map((expense) => (
-                      <Tr key={expense.id}>
-                        <Td>{new Date(expense.date).toLocaleDateString('pt-BR')}</Td>
-                        <Td>{expense.description}</Td>
-                        <Td>{expense.category}</Td>
-                        <Td>{formatCurrency(expense.amount)}</Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              </Box>
-            </VStack>
-          </TabPanel>
-        </TabPanels>
-      </Tabs>
-
-      <ExpenseModal isOpen={isOpen} onClose={onClose} />
-    </Container>
+        <Box
+          p={6}
+          bg={bgCard}
+          borderRadius="xl"
+          borderWidth="1px"
+          borderColor={borderColor}
+        >
+          <HStack spacing={4} mb={6}>
+            <Icon as={FiPieChart} color={iconColor} boxSize={5} />
+            <Text fontSize="lg" fontWeight="semibold">
+              Maiores Despesas
+            </Text>
+          </HStack>
+          <Table variant="simple" size="sm">
+            <Thead>
+              <Tr>
+                <Th>Categoria</Th>
+                <Th isNumeric>Valor</Th>
+                <Th isNumeric>%</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {data.topExpenses.map(([category, amount], index) => (
+                <Tr key={index}>
+                  <Td>{category}</Td>
+                  <Td isNumeric>{formatCurrency(amount)}</Td>
+                  <Td isNumeric>
+                    {((amount / data.totalExpenses) * 100).toFixed(1)}%
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </Box>
+      </SimpleGrid>
+    </VStack>
   );
 };
 

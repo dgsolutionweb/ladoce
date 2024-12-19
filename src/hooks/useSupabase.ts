@@ -1,21 +1,19 @@
 import { useState, useEffect } from 'react';
-import { supabase, checkSupabaseConnection } from '../services/supabase';
+import { supabase } from '../services/supabase';
 
 export const useSupabase = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        const connected = await checkSupabaseConnection();
-        setIsConnected(connected);
-        if (!connected) {
-          setError('Não foi possível conectar ao banco de dados');
-        }
+        const { data, error } = await supabase.from('products').select('count');
+        if (error) throw error;
+        setIsConnected(true);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro desconhecido');
+        setError(err as Error);
         setIsConnected(false);
       } finally {
         setIsLoading(false);
@@ -26,10 +24,10 @@ export const useSupabase = () => {
   }, []);
 
   return {
-    supabase,
     isConnected,
     isLoading,
     error,
+    supabase,
   };
 };
 

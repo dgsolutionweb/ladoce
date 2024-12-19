@@ -1,11 +1,15 @@
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-export const formatCurrency = (value: number): string => {
+export const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
-    currency: 'BRL'
+    currency: 'BRL',
   }).format(value);
+};
+
+export const formatDate = (date: string) => {
+  return new Date(date).toLocaleDateString('pt-BR');
 };
 
 export const formatDateTime = (date: string): string => {

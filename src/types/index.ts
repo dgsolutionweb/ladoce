@@ -1,10 +1,18 @@
 export interface Product {
   id: number;
   name: string;
-  cost_price: number;
-  sale_price: number;
+  description?: string;
+  price: number;
   stock_quantity: number;
-  created_at: string;
+  created_at?: string;
+}
+
+export interface SaleProduct {
+  product_id: number;
+  quantity: number;
+  price_at_time: number;
+  product?: Product;
+  total?: number;
 }
 
 export interface Sale {
@@ -15,16 +23,16 @@ export interface Sale {
   total_amount: number;
   created_at: string;
   sale_items?: SaleItem[];
+  products?: SaleProduct[];
 }
 
 export interface SaleItem {
-  id: number;
-  sale_id: number;
+  id?: number;
+  sale_id?: number;
   product_id: number;
+  product_name: string;
   quantity: number;
   price_at_time: number;
-  created_at: string;
-  product?: Product;
 }
 
 export interface Expense {
@@ -34,4 +42,27 @@ export interface Expense {
   date: string;
   category: string;
   created_at: string;
+}
+
+export interface MonthlyGoal {
+  id: number;
+  amount: number;
+  created_at: string;
+}
+
+export interface AppContextData {
+  products: Product[];
+  sales: Sale[];
+  expenses: Expense[];
+  monthlyGoal: number;
+  loading: boolean;
+  addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
+  updateProduct: (product: Product) => Promise<void>;
+  deleteProduct: (id: number) => Promise<void>;
+  addSale: (sale: Omit<Sale, 'id'>) => Promise<void>;
+  deleteSale: (id: number) => Promise<void>;
+  addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
+  updateExpense: (expense: Expense) => Promise<void>;
+  deleteExpense: (id: number) => Promise<void>;
+  updateMonthlyGoal: (goal: number) => Promise<void>;
 } 

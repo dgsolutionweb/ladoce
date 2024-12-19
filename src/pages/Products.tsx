@@ -1,235 +1,189 @@
 import {
   Box,
   Button,
-  Heading,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
+  Grid,
   HStack,
-  useBreakpointValue,
-  IconButton,
-  Flex,
+  Icon,
+  Input,
+  InputGroup,
+  InputLeftElement,
+  SimpleGrid,
   Text,
   VStack,
+  useColorModeValue,
   useDisclosure,
-  useToast,
-  AlertDialog,
-  AlertDialogBody,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogContent,
-  AlertDialogOverlay,
+  Badge,
+  Menu,
+  MenuButton,
+  MenuList,
+  MenuItem,
+  IconButton,
+  Tooltip,
 } from '@chakra-ui/react';
-import { FiPlus, FiEdit2, FiTrash2 } from 'react-icons/fi';
+import { FiPackage, FiSearch, FiPlus, FiMoreVertical, FiEdit2, FiTrash2, FiAlertCircle } from 'react-icons/fi';
 import { useApp } from '../contexts/AppContext';
-import ProductModal from '../components/ProductModal';
 import { formatCurrency } from '../utils/format';
-import { useRef, useState } from 'react';
+import ProductModal from '../components/ProductModal';
+import { useState } from 'react';
 import { Product } from '../types';
 
 const Products = () => {
-  const isMobile = useBreakpointValue({ base: true, md: false });
-  const { products, loading, deleteProduct } = useApp();
+  const { products, deleteProduct } = useApp();
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const toast = useToast();
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Delete dialog
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
-  const cancelRef = useRef<HTMLButtonElement>(null);
+  const bgCard = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const iconBg = useColorModeValue('brand.50', 'brand.900');
+  const iconColor = useColorModeValue('brand.600', 'brand.200');
+  const textColor = useColorModeValue('gray.600', 'gray.400');
 
   const handleEdit = (product: Product) => {
     setSelectedProduct(product);
     onOpen();
   };
 
-  const handleDelete = (product: Product) => {
-    setProductToDelete(product);
-    setIsDeleteOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!productToDelete) return;
-
-    try {
-      await deleteProduct(productToDelete.id);
-      toast({
-        title: 'Produto excluído',
-        description: 'O produto foi excluído com sucesso.',
-        status: 'success',
-        duration: 3000,
-        isClosable: true,
-      });
-    } catch (error) {
-      toast({
-        title: 'Erro ao excluir',
-        description: error instanceof Error ? error.message : 'Erro desconhecido',
-        status: 'error',
-        duration: 3000,
-        isClosable: true,
-      });
-    } finally {
-      setIsDeleteOpen(false);
-      setProductToDelete(null);
+  const handleDelete = async (product: Product) => {
+    if (window.confirm(`Tem certeza que deseja excluir o produto "${product.name}"?`)) {
+      await deleteProduct(product.id);
     }
   };
 
-  const handleCloseModal = () => {
-    setSelectedProduct(null);
-    onClose();
-  };
-
-  const handleNewProduct = () => {
+  const handleAdd = () => {
     setSelectedProduct(null);
     onOpen();
   };
 
+  const filteredProducts = products.filter(product =>
+    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    product.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const ProductCard = ({ product }: { product: Product }) => (
+    <Box
+      p={6}
+      bg={bgCard}
+      borderRadius="xl"
+      borderWidth="1px"
+      borderColor={borderColor}
+      transition="all 0.2s"
+      _hover={{
+        transform: 'translateY(-4px)',
+        shadow: 'lg',
+      }}
+    >
+      <HStack justify="space-between" mb={4}>
+        <HStack spacing={4}>
+          <Box
+            p={3}
+            borderRadius="xl"
+            bg={iconBg}
+            color={iconColor}
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Icon as={FiPackage} boxSize={5} />
+          </Box>
+          <VStack align="start" spacing={1}>
+            <Text fontSize="lg" fontWeight="semibold">
+              {product.name}
+            </Text>
+            <Text fontSize="sm" color={textColor} noOfLines={1}>
+              {product.description || 'Sem descrição'}
+            </Text>
+          </VStack>
+        </HStack>
+        <Menu>
+          <MenuButton
+            as={IconButton}
+            icon={<FiMoreVertical />}
+            variant="ghost"
+            size="sm"
+            aria-label="Opções"
+          />
+          <MenuList>
+            <MenuItem icon={<FiEdit2 />} onClick={() => handleEdit(product)}>
+              Editar
+            </MenuItem>
+            <MenuItem icon={<FiTrash2 />} onClick={() => handleDelete(product)} color="red.500">
+              Excluir
+            </MenuItem>
+          </MenuList>
+        </Menu>
+      </HStack>
+
+      <Grid templateColumns="repeat(2, 1fr)" gap={4}>
+        <Box>
+          <Text fontSize="sm" color={textColor} mb={1}>
+            Preço
+          </Text>
+          <Text fontSize="md" fontWeight="semibold">
+            {formatCurrency(product.price)}
+          </Text>
+        </Box>
+        <Box>
+          <Text fontSize="sm" color={textColor} mb={1}>
+            Estoque
+          </Text>
+          <HStack>
+            <Text fontSize="md" fontWeight="semibold">
+              {product.stock_quantity}
+            </Text>
+            {product.stock_quantity < 10 && (
+              <Tooltip label="Estoque baixo" hasArrow>
+                <Badge colorScheme="red" variant="subtle">
+                  <Icon as={FiAlertCircle} />
+                </Badge>
+              </Tooltip>
+            )}
+          </HStack>
+        </Box>
+      </Grid>
+    </Box>
+  );
+
   return (
-    <Box>
-      <Flex
-        direction={{ base: "column", md: "row" }}
-        justify="space-between"
-        align={{ base: "stretch", md: "center" }}
-        mb={6}
-        gap={4}
-      >
-        <Heading fontSize={{ base: "xl", md: "2xl" }}>Produtos</Heading>
+    <VStack spacing={8} align="stretch">
+      <HStack justify="space-between">
+        <Text fontSize="2xl" fontWeight="bold">
+          Produtos
+        </Text>
         <Button
           leftIcon={<FiPlus />}
-          colorScheme="purple"
-          width={{ base: "full", md: "auto" }}
-          onClick={handleNewProduct}
-          isLoading={loading}
+          colorScheme="brand"
+          onClick={handleAdd}
         >
           Novo Produto
         </Button>
-      </Flex>
+      </HStack>
 
-      <Box bg="white" p={{ base: 2, md: 6 }} borderRadius="lg" shadow="sm" overflowX="auto">
-        {isMobile ? (
-          // Mobile view - card layout
-          <VStack spacing={4} align="stretch">
-            {products.map((product) => (
-              <Box
-                key={product.id}
-                p={4}
-                borderWidth="1px"
-                borderRadius="md"
-                position="relative"
-              >
-                <VStack align="stretch" spacing={2}>
-                  <Text fontWeight="bold">{product.name}</Text>
-                  <Text>Preço de Custo: {formatCurrency(product.cost_price)}</Text>
-                  <Text>Preço de Venda: {formatCurrency(product.sale_price)}</Text>
-                  <Text>Estoque: {product.stock_quantity}</Text>
-                  <HStack spacing={2} mt={2}>
-                    <Button
-                      size="sm"
-                      colorScheme="blue"
-                      leftIcon={<FiEdit2 />}
-                      width="full"
-                      onClick={() => handleEdit(product)}
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      size="sm"
-                      colorScheme="red"
-                      leftIcon={<FiTrash2 />}
-                      width="full"
-                      onClick={() => handleDelete(product)}
-                    >
-                      Excluir
-                    </Button>
-                  </HStack>
-                </VStack>
-              </Box>
-            ))}
-          </VStack>
-        ) : (
-          // Desktop view - table layout
-          <Table variant="simple">
-            <Thead>
-              <Tr>
-                <Th>Nome</Th>
-                <Th isNumeric>Preço de Custo</Th>
-                <Th isNumeric>Preço de Venda</Th>
-                <Th isNumeric>Estoque</Th>
-                <Th>Ações</Th>
-              </Tr>
-            </Thead>
-            <Tbody>
-              {products.map((product) => (
-                <Tr key={product.id}>
-                  <Td>{product.name}</Td>
-                  <Td isNumeric>{formatCurrency(product.cost_price)}</Td>
-                  <Td isNumeric>{formatCurrency(product.sale_price)}</Td>
-                  <Td isNumeric>{product.stock_quantity}</Td>
-                  <Td>
-                    <HStack spacing={2}>
-                      <Button
-                        size="sm"
-                        colorScheme="blue"
-                        leftIcon={<FiEdit2 />}
-                        onClick={() => handleEdit(product)}
-                      >
-                        Editar
-                      </Button>
-                      <Button
-                        size="sm"
-                        colorScheme="red"
-                        leftIcon={<FiTrash2 />}
-                        onClick={() => handleDelete(product)}
-                      >
-                        Excluir
-                      </Button>
-                    </HStack>
-                  </Td>
-                </Tr>
-              ))}
-            </Tbody>
-          </Table>
-        )}
+      <Box>
+        <InputGroup>
+          <InputLeftElement pointerEvents="none">
+            <Icon as={FiSearch} color="gray.400" />
+          </InputLeftElement>
+          <Input
+            placeholder="Buscar produtos..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </InputGroup>
       </Box>
+
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+        {filteredProducts.map(product => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </SimpleGrid>
 
       <ProductModal
         isOpen={isOpen}
-        onClose={handleCloseModal}
+        onClose={onClose}
         product={selectedProduct}
       />
-
-      <AlertDialog
-        isOpen={isDeleteOpen}
-        leastDestructiveRef={cancelRef}
-        onClose={() => setIsDeleteOpen(false)}
-      >
-        <AlertDialogOverlay>
-          <AlertDialogContent>
-            <AlertDialogHeader fontSize="lg" fontWeight="bold">
-              Excluir Produto
-            </AlertDialogHeader>
-
-            <AlertDialogBody>
-              Tem certeza que deseja excluir o produto "{productToDelete?.name}"?
-              Esta ação não pode ser desfeita.
-            </AlertDialogBody>
-
-            <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={() => setIsDeleteOpen(false)}>
-                Cancelar
-              </Button>
-              <Button colorScheme="red" onClick={confirmDelete} ml={3}>
-                Excluir
-              </Button>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialogOverlay>
-      </AlertDialog>
-    </Box>
+    </VStack>
   );
 };
 

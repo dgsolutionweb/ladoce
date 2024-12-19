@@ -1,28 +1,17 @@
 import {
   Box,
-  Container,
-  Flex,
-  Heading,
+  Button,
+  Grid,
+  HStack,
+  Icon,
   SimpleGrid,
   Stat,
   StatLabel,
   StatNumber,
-  StatHelpText,
-  Progress,
-  useColorModeValue,
-  Icon,
   Text,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  Card,
-  CardBody,
   VStack,
-  HStack,
-  Button,
+  useColorModeValue,
+  useDisclosure,
   AlertDialog,
   AlertDialogBody,
   AlertDialogFooter,
@@ -31,307 +20,170 @@ import {
   AlertDialogOverlay,
   useToast,
 } from '@chakra-ui/react';
-import { useEffect, useState, useRef } from 'react';
+import { FiDollarSign, FiShoppingBag, FiCreditCard, FiTrendingUp, FiRefreshCw } from 'react-icons/fi';
 import { useApp } from '../contexts/AppContext';
 import { formatCurrency } from '../utils/format';
-import { FiTrendingUp, FiTrendingDown, FiDollarSign, FiShoppingBag, FiTarget, FiEdit2, FiTrash2 } from 'react-icons/fi';
-import ExpenseModal from '../components/ExpenseModal';
-import GoalModal from '../components/GoalModal';
-import { supabase } from '../services/supabase';
-
-interface DashboardStats {
-  todaySales: number;
-  todayTransactions: number;
-  monthSales: number;
-  monthTransactions: number;
-  monthExpenses: number;
-  netProfit: number;
-  goalProgress: number;
-  lowStockCount: number;
-  mostSoldProducts: {
-    name: string;
-    quantity: number;
-    revenue: number;
-  }[];
-}
+import { useSupabase } from '../hooks/useSupabase';
+import { useRef } from 'react';
 
 const Dashboard = () => {
-  const { sales, products, expenses, monthlyGoal, fetchSales, fetchProducts, fetchExpenses } = useApp();
-  const [stats, setStats] = useState<DashboardStats>({
-    todaySales: 0,
-    todayTransactions: 0,
-    monthSales: 0,
-    monthTransactions: 0,
-    monthExpenses: 0,
-    netProfit: 0,
-    goalProgress: 0,
-    lowStockCount: 0,
-    mostSoldProducts: [],
-  });
-  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
-  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
-  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+  const { sales, products, expenses, monthlyGoal } = useApp();
+  const { supabase } = useSupabase();
+  const { isOpen, onOpen, onClose } = useDisclosure();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const toast = useToast();
-  const bgColor = useColorModeValue('white', 'gray.800');
 
-  const handleResetData = async () => {
+  const bgCard = useColorModeValue('white', 'gray.800');
+  const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const iconBg = useColorModeValue('brand.100', 'brand.900');
+  const iconColor = useColorModeValue('brand.700', 'brand.200');
+  const textColor = useColorModeValue('gray.600', 'gray.400');
+
+  const currentMonthSales = sales.filter(sale => {
+    const saleDate = new Date(sale.date);
+    const today = new Date();
+    return saleDate.getMonth() === today.getMonth() && 
+           saleDate.getFullYear() === today.getFullYear();
+  });
+
+  const totalSales = currentMonthSales.reduce((total, sale) => total + sale.total_amount, 0);
+  const totalExpenses = expenses.reduce((total, expense) => total + expense.amount, 0);
+  const profit = totalSales - totalExpenses;
+  const goalProgress = (totalSales / monthlyGoal) * 100;
+
+  const handleReset = async () => {
     try {
-      // Delete all records from each table
       await supabase.from('sale_items').delete().neq('id', 0);
       await supabase.from('sales').delete().neq('id', 0);
       await supabase.from('expenses').delete().neq('id', 0);
       await supabase.from('products').delete().neq('id', 0);
-
-      // Refresh the data
-      await Promise.all([
-        fetchSales(),
-        fetchProducts(),
-        fetchExpenses()
-      ]);
-
+      
       toast({
-        title: 'Dados resetados',
-        description: 'Todos os dados foram apagados com sucesso',
+        title: 'Dados resetados com sucesso!',
         status: 'success',
         duration: 3000,
         isClosable: true,
       });
+
+      window.location.reload();
     } catch (error) {
       toast({
-        title: 'Erro',
-        description: 'Ocorreu um erro ao resetar os dados',
+        title: 'Erro ao resetar dados',
+        description: 'Tente novamente mais tarde',
         status: 'error',
         duration: 3000,
         isClosable: true,
       });
-    } finally {
-      setIsResetDialogOpen(false);
     }
+    onClose();
   };
 
-  useEffect(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-
-    // Calculate today's stats
-    const todaySales = sales.filter(sale => {
-      const saleDate = new Date(sale.date);
-      return saleDate >= today;
-    });
-
-    // Calculate month's stats
-    const monthSales = sales.filter(sale => {
-      const saleDate = new Date(sale.date);
-      return saleDate >= firstDayOfMonth;
-    });
-
-    // Calculate month's expenses
-    const monthExpenses = expenses.filter(expense => {
-      const expenseDate = new Date(expense.date);
-      return expenseDate >= firstDayOfMonth;
-    });
-
-    // Calculate most sold products
-    const productSales = new Map<string, { quantity: number; revenue: number }>();
-    monthSales.forEach(sale => {
-      if (sale.sale_items) {
-        sale.sale_items.forEach(item => {
-          const product = products.find(p => p.id === item.product_id);
-          if (product) {
-            const current = productSales.get(product.name) || { quantity: 0, revenue: 0 };
-            productSales.set(product.name, {
-              quantity: current.quantity + item.quantity,
-              revenue: current.revenue + (item.price_at_time * item.quantity),
-            });
-          }
-        });
-      }
-    });
-
-    const mostSoldProducts = Array.from(productSales.entries())
-      .map(([name, stats]) => ({
-        name,
-        quantity: stats.quantity,
-        revenue: stats.revenue,
-      }))
-      .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 5);
-
-    // Count low stock products
-    const lowStockCount = products.filter(product => product.stock_quantity < 10).length;
-
-    // Calculate total values
-    const todayTotal = todaySales.reduce((sum, sale) => sum + sale.total_amount, 0);
-    const monthTotal = monthSales.reduce((sum, sale) => sum + sale.total_amount, 0);
-    const monthExpensesTotal = monthExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-    const netProfit = monthTotal - monthExpensesTotal;
-    const goalProgress = (monthTotal / monthlyGoal) * 100;
-
-    setStats({
-      todaySales: todayTotal,
-      todayTransactions: todaySales.length,
-      monthSales: monthTotal,
-      monthTransactions: monthSales.length,
-      monthExpenses: monthExpensesTotal,
-      netProfit,
-      goalProgress,
-      lowStockCount,
-      mostSoldProducts,
-    });
-  }, [sales, products, expenses, monthlyGoal]);
+  const StatCard = ({ label, value, icon, color }: { label: string; value: string; icon: any; color?: string }) => (
+    <Box
+      p={6}
+      bg={bgCard}
+      borderRadius="xl"
+      borderWidth="1px"
+      borderColor={borderColor}
+      transition="all 0.2s"
+      _hover={{
+        transform: 'translateY(-4px)',
+        shadow: 'lg',
+      }}
+    >
+      <HStack spacing={4} mb={4}>
+        <Box
+          p={3}
+          borderRadius="xl"
+          bg={iconBg}
+          color={iconColor}
+          display="flex"
+          alignItems="center"
+          justifyContent="center"
+        >
+          <Icon as={icon} boxSize={6} />
+        </Box>
+        <VStack align="start" spacing={1}>
+          <Text fontSize="sm" color={textColor} fontWeight="medium">
+            {label}
+          </Text>
+          <Text fontSize="2xl" fontWeight="bold" color={color}>
+            {value}
+          </Text>
+        </VStack>
+      </HStack>
+      <Grid templateColumns="repeat(2, 1fr)" gap={4}>
+        <Box>
+          <Text fontSize="sm" color={textColor} mb={1}>
+            Meta Mensal
+          </Text>
+          <Text fontSize="md" fontWeight="semibold">
+            {formatCurrency(monthlyGoal)}
+          </Text>
+        </Box>
+        <Box>
+          <Text fontSize="sm" color={textColor} mb={1}>
+            Progresso
+          </Text>
+          <Text 
+            fontSize="md" 
+            fontWeight="semibold"
+            color={goalProgress >= 100 ? 'green.500' : undefined}
+          >
+            {goalProgress.toFixed(1)}%
+          </Text>
+        </Box>
+      </Grid>
+    </Box>
+  );
 
   return (
-    <Container maxW="container.xl" py={8}>
-      <Flex justify="space-between" align="center" mb={8}>
-        <Heading size="lg">Dashboard</Heading>
+    <VStack spacing={8} align="stretch">
+      <HStack justify="space-between">
+        <Text fontSize="2xl" fontWeight="bold">
+          Dashboard
+        </Text>
         <Button
-          leftIcon={<FiTrash2 />}
+          leftIcon={<FiRefreshCw />}
           colorScheme="red"
           variant="ghost"
-          onClick={() => setIsResetDialogOpen(true)}
+          onClick={onOpen}
+          size="sm"
         >
           Resetar Dados
         </Button>
-      </Flex>
+      </HStack>
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6} mb={8}>
-        <Card bg={bgColor} shadow="sm">
-          <CardBody>
-            <Stat>
-              <StatLabel>Vendas Hoje</StatLabel>
-              <StatNumber color="green.500">
-                <Icon as={FiTrendingUp} mr={2} />
-                {formatCurrency(stats.todaySales)}
-              </StatNumber>
-              <StatHelpText>{stats.todayTransactions} transações</StatHelpText>
-            </Stat>
-          </CardBody>
-        </Card>
-
-        <Card bg={bgColor} shadow="sm">
-          <CardBody>
-            <Stat>
-              <StatLabel>Vendas do Mês</StatLabel>
-              <StatNumber color="green.500">
-                <Icon as={FiTrendingUp} mr={2} />
-                {formatCurrency(stats.monthSales)}
-              </StatNumber>
-              <StatHelpText>{stats.monthTransactions} transações</StatHelpText>
-            </Stat>
-          </CardBody>
-        </Card>
-
-        <Card bg={bgColor} shadow="sm">
-          <CardBody>
-            <Stat>
-              <StatLabel>Despesas do Mês</StatLabel>
-              <StatNumber color="red.500">
-                <Icon as={FiTrendingDown} mr={2} />
-                {formatCurrency(stats.monthExpenses)}
-              </StatNumber>
-              <StatHelpText>
-                <Button
-                  size="xs"
-                  colorScheme="purple"
-                  variant="ghost"
-                  onClick={() => setIsExpenseModalOpen(true)}
-                >
-                  Adicionar Despesa
-                </Button>
-              </StatHelpText>
-            </Stat>
-          </CardBody>
-        </Card>
-
-        <Card bg={bgColor} shadow="sm">
-          <CardBody>
-            <Stat>
-              <StatLabel>Lucro Líquido</StatLabel>
-              <StatNumber color={stats.netProfit >= 0 ? "green.500" : "red.500"}>
-                <Icon as={FiDollarSign} mr={2} />
-                {formatCurrency(stats.netProfit)}
-              </StatNumber>
-              <StatHelpText>Este mês</StatHelpText>
-            </Stat>
-          </CardBody>
-        </Card>
-      </SimpleGrid>
-
-      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing={6} mb={8}>
-        <Card bg={bgColor} shadow="sm">
-          <CardBody>
-            <VStack align="stretch" spacing={4}>
-              <Flex justify="space-between" align="center">
-                <HStack>
-                  <Icon as={FiTarget} color="purple.500" boxSize={5} />
-                  <Heading size="md">Meta Mensal</Heading>
-                </HStack>
-                <Button
-                  size="sm"
-                  leftIcon={<FiEdit2 />}
-                  variant="ghost"
-                  onClick={() => setIsGoalModalOpen(true)}
-                >
-                  Editar
-                </Button>
-              </Flex>
-              <Box>
-                <Flex justify="space-between" mb={2}>
-                  <Text>{formatCurrency(stats.monthSales)}</Text>
-                  <Text>{formatCurrency(monthlyGoal)}</Text>
-                </Flex>
-                <Progress
-                  value={stats.goalProgress}
-                  colorScheme={stats.goalProgress >= 100 ? 'green' : 'purple'}
-                  borderRadius="full"
-                  size="sm"
-                  mb={2}
-                />
-                <Text fontSize="sm" color="gray.500">
-                  {stats.goalProgress.toFixed(1)}% da meta atingida
-                </Text>
-              </Box>
-            </VStack>
-          </CardBody>
-        </Card>
-
-        <Card bg={bgColor} shadow="sm">
-          <CardBody>
-            <VStack align="stretch" spacing={4}>
-              <HStack>
-                <Icon as={FiShoppingBag} color="purple.500" boxSize={5} />
-                <Heading size="md">Produtos Mais Vendidos</Heading>
-              </HStack>
-              <Table variant="simple" size="sm">
-                <Thead>
-                  <Tr>
-                    <Th>Produto</Th>
-                    <Th isNumeric>Qtd.</Th>
-                    <Th isNumeric>Receita</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {stats.mostSoldProducts.map((product, index) => (
-                    <Tr key={index}>
-                      <Td>{product.name}</Td>
-                      <Td isNumeric>{product.quantity}</Td>
-                      <Td isNumeric>{formatCurrency(product.revenue)}</Td>
-                    </Tr>
-                  ))}
-                </Tbody>
-              </Table>
-            </VStack>
-          </CardBody>
-        </Card>
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
+        <StatCard
+          label="Vendas do Mês"
+          value={formatCurrency(totalSales)}
+          icon={FiDollarSign}
+          color={goalProgress >= 100 ? 'green.500' : undefined}
+        />
+        <StatCard
+          label="Produtos Ativos"
+          value={products.length.toString()}
+          icon={FiShoppingBag}
+        />
+        <StatCard
+          label="Despesas"
+          value={formatCurrency(totalExpenses)}
+          icon={FiCreditCard}
+          color="red.500"
+        />
+        <StatCard
+          label="Lucro"
+          value={formatCurrency(profit)}
+          icon={FiTrendingUp}
+          color={profit >= 0 ? 'green.500' : 'red.500'}
+        />
       </SimpleGrid>
 
       <AlertDialog
-        isOpen={isResetDialogOpen}
+        isOpen={isOpen}
         leastDestructiveRef={cancelRef}
-        onClose={() => setIsResetDialogOpen(false)}
+        onClose={onClose}
       >
         <AlertDialogOverlay>
           <AlertDialogContent>
@@ -340,32 +192,22 @@ const Dashboard = () => {
             </AlertDialogHeader>
 
             <AlertDialogBody>
-              Tem certeza? Esta ação irá apagar todos os dados cadastrados (produtos, vendas, despesas).
-              Esta ação não pode ser desfeita.
+              Tem certeza? Você não poderá desfazer esta ação depois.
+              Todos os dados serão apagados.
             </AlertDialogBody>
 
             <AlertDialogFooter>
-              <Button ref={cancelRef} onClick={() => setIsResetDialogOpen(false)}>
+              <Button ref={cancelRef} onClick={onClose}>
                 Cancelar
               </Button>
-              <Button colorScheme="red" onClick={handleResetData} ml={3}>
+              <Button colorScheme="red" onClick={handleReset} ml={3}>
                 Resetar
               </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialogOverlay>
       </AlertDialog>
-
-      <ExpenseModal
-        isOpen={isExpenseModalOpen}
-        onClose={() => setIsExpenseModalOpen(false)}
-      />
-
-      <GoalModal
-        isOpen={isGoalModalOpen}
-        onClose={() => setIsGoalModalOpen(false)}
-      />
-    </Container>
+    </VStack>
   );
 };
 

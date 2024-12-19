@@ -1,46 +1,20 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { ChakraProvider, extendTheme } from '@chakra-ui/react';
 import App from './App';
-import { AppProvider } from './contexts/AppContext';
+import { ChakraProvider } from '@chakra-ui/react';
+import theme from './theme';
+import './index.css';
 
-const theme = extendTheme({
-  styles: {
-    global: {
-      body: {
-        bg: 'gray.50',
-      },
-    },
-  },
-  colors: {
-    brand: {
-      50: '#f5e6ff',
-      100: '#dbb3ff',
-      200: '#c180ff',
-      300: '#a74dff',
-      400: '#8d1aff',
-      500: '#7400e6',
-      600: '#5a00b3',
-      700: '#400080',
-      800: '#26004d',
-      900: '#0d001a',
-    },
-  },
-  components: {
-    Button: {
-      defaultProps: {
-        colorScheme: 'brand',
-      },
-    },
-  },
-});
+// Add Inter font
+const inter = document.createElement('link');
+inter.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap';
+inter.rel = 'stylesheet';
+document.head.appendChild(inter);
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <ChakraProvider theme={theme}>
-      <AppProvider>
-        <App />
-      </AppProvider>
+      <App />
     </ChakraProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

@@ -9,18 +9,11 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 
-export const checkConnection = async () => {
+export const checkSupabaseConnection = async () => {
   try {
-    const { data, error } = await supabase
-      .from('products')
-      .select('id')
-      .limit(1);
-
-    if (error) throw error;
-
-    return true;
-  } catch (error) {
-    console.error('Supabase connection error:', error);
+    const { error } = await supabase.from('products').select('count');
+    return !error;
+  } catch {
     return false;
   }
 }; 
