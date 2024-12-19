@@ -4,7 +4,7 @@ export interface Product {
   description?: string;
   price: number;
   stock_quantity: number;
-  created_at?: string;
+  created_at: string;
 }
 
 export interface SaleProduct {
@@ -17,13 +17,16 @@ export interface SaleProduct {
 
 export interface Sale {
   id: number;
-  date: string;
-  payment_method: 'cash' | 'credit' | 'debit' | 'pix';
+  total: number;
+  payment_method: string;
   delivery: boolean;
-  total_amount: number;
   created_at: string;
-  sale_items?: SaleItem[];
-  products?: SaleProduct[];
+  products: {
+    id: number;
+    name: string;
+    price: number;
+    quantity: number;
+  }[];
 }
 
 export interface SaleItem {
@@ -39,14 +42,14 @@ export interface Expense {
   id: number;
   description: string;
   amount: number;
-  date: string;
-  category: string;
   created_at: string;
 }
 
-export interface MonthlyGoal {
+export interface Goal {
   id: number;
-  amount: number;
+  description: string;
+  target_amount: number;
+  current_amount: number;
   created_at: string;
 }
 
@@ -59,7 +62,7 @@ export interface AppContextData {
   addProduct: (product: Omit<Product, 'id'>) => Promise<void>;
   updateProduct: (product: Product) => Promise<void>;
   deleteProduct: (id: number) => Promise<void>;
-  addSale: (sale: Omit<Sale, 'id'>) => Promise<void>;
+  addSale: (sale: Omit<Sale, 'id' | 'created_at'>) => Promise<void>;
   deleteSale: (id: number) => Promise<void>;
   addExpense: (expense: Omit<Expense, 'id'>) => Promise<void>;
   updateExpense: (expense: Expense) => Promise<void>;

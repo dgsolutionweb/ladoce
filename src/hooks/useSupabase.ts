@@ -9,7 +9,7 @@ export const useSupabase = () => {
   useEffect(() => {
     const checkConnection = async () => {
       try {
-        const { data, error } = await supabase.from('products').select('count');
+        const { error } = await supabase.from('products').select('count');
         if (error) throw error;
         setIsConnected(true);
       } catch (err) {

@@ -1,25 +1,24 @@
 import {
   Box,
   Button,
-  Grid,
-  HStack,
-  Icon,
-  SimpleGrid,
-  Text,
-  VStack,
-  useColorModeValue,
-  Badge,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
+  Container,
+  Flex,
+  Heading,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
   IconButton,
-  Tooltip,
+  useToast,
+  Text,
   Input,
   InputGroup,
   InputLeftElement,
+  Badge,
 } from '@chakra-ui/react';
-import { FiShoppingCart, FiSearch, FiPlus, FiMoreVertical, FiTrash2, FiCalendar } from 'react-icons/fi';
+import { FiTrash2, FiPlus, FiSearch } from 'react-icons/fi';
 import { useApp } from '../contexts/AppContext';
 import { formatCurrency, formatDate } from '../utils/format';
 import { useState } from 'react';
@@ -27,132 +26,44 @@ import { Sale } from '../types';
 
 const Sales = () => {
   const { sales, deleteSale } = useApp();
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const bgCard = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
-  const iconBg = useColorModeValue('brand.50', 'brand.900');
-  const iconColor = useColorModeValue('brand.600', 'brand.200');
-  const textColor = useColorModeValue('gray.600', 'gray.400');
+  const [searchTerm, setSearchTerm] = useState('');
+  const toast = useToast();
 
   const handleDelete = async (sale: Sale) => {
     if (window.confirm(`Tem certeza que deseja excluir esta venda?`)) {
-      await deleteSale(sale.id);
+      try {
+        await deleteSale(sale.id);
+        toast({
+          title: 'Venda excluída',
+          description: 'A venda foi excluída com sucesso.',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+      } catch (error) {
+        toast({
+          title: 'Erro',
+          description: error instanceof Error ? error.message : 'Erro ao excluir venda',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
     }
   };
 
   const filteredSales = sales
     .filter(sale =>
-      sale.sale_items?.some(item =>
-        item.product_name.toLowerCase().includes(searchQuery.toLowerCase())
+      sale.products.some(product =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase())
       )
     )
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-  const SaleCard = ({ sale }: { sale: Sale }) => (
-    <Box
-      p={6}
-      bg={bgCard}
-      borderRadius="xl"
-      borderWidth="1px"
-      borderColor={borderColor}
-      transition="all 0.2s"
-      _hover={{
-        transform: 'translateY(-4px)',
-        shadow: 'lg',
-      }}
-    >
-      <HStack justify="space-between" mb={4}>
-        <HStack spacing={4}>
-          <Box
-            p={3}
-            borderRadius="xl"
-            bg={iconBg}
-            color={iconColor}
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Icon as={FiShoppingCart} boxSize={5} />
-          </Box>
-          <VStack align="start" spacing={1}>
-            <HStack>
-              <Text fontSize="lg" fontWeight="semibold">
-                Venda #{sale.id}
-              </Text>
-              <Badge colorScheme="brand" variant="subtle">
-                {sale.payment_method}
-              </Badge>
-            </HStack>
-            <HStack spacing={2} color={textColor}>
-              <Icon as={FiCalendar} boxSize={4} />
-              <Text fontSize="sm">{formatDate(sale.date)}</Text>
-            </HStack>
-          </VStack>
-        </HStack>
-        <Menu>
-          <MenuButton
-            as={IconButton}
-            icon={<FiMoreVertical />}
-            variant="ghost"
-            size="sm"
-            aria-label="Opções"
-          />
-          <MenuList>
-            <MenuItem icon={<FiTrash2 />} onClick={() => handleDelete(sale)} color="red.500">
-              Excluir
-            </MenuItem>
-          </MenuList>
-        </Menu>
-      </HStack>
-
-      <VStack align="stretch" spacing={4}>
-        <Box>
-          <Text fontSize="sm" color={textColor} mb={2}>
-            Itens
-          </Text>
-          <VStack align="stretch" spacing={2}>
-            {sale.sale_items?.map((item, index) => (
-              <HStack key={index} justify="space-between">
-                <Text fontSize="sm">
-                  {item.quantity}x {item.product_name}
-                </Text>
-                <Text fontSize="sm" fontWeight="medium">
-                  {formatCurrency(item.price_at_time * item.quantity)}
-                </Text>
-              </HStack>
-            ))}
-          </VStack>
-        </Box>
-
-        <Grid templateColumns="repeat(2, 1fr)" gap={4}>
-          <Box>
-            <Text fontSize="sm" color={textColor} mb={1}>
-              Total
-            </Text>
-            <Text fontSize="md" fontWeight="semibold">
-              {formatCurrency(sale.total_amount)}
-            </Text>
-          </Box>
-          <Box>
-            <Text fontSize="sm" color={textColor} mb={1}>
-              Itens
-            </Text>
-            <Text fontSize="md" fontWeight="semibold">
-              {sale.sale_items?.reduce((total, item) => total + item.quantity, 0)}
-            </Text>
-          </Box>
-        </Grid>
-      </VStack>
-    </Box>
-  );
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
-    <VStack spacing={8} align="stretch">
-      <HStack justify="space-between">
-        <Text fontSize="2xl" fontWeight="bold">
-          Vendas
-        </Text>
+    <Container maxW="container.xl" py={8}>
+      <Flex justify="space-between" align="center" mb={8}>
+        <Heading size="lg">Vendas</Heading>
         <Button
           leftIcon={<FiPlus />}
           colorScheme="brand"
@@ -161,27 +72,79 @@ const Sales = () => {
         >
           Nova Venda
         </Button>
-      </HStack>
+      </Flex>
 
-      <Box>
+      <Box mb={8}>
         <InputGroup>
           <InputLeftElement pointerEvents="none">
-            <Icon as={FiSearch} color="gray.400" />
+            <FiSearch color="gray.300" />
           </InputLeftElement>
           <Input
             placeholder="Buscar vendas..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </InputGroup>
       </Box>
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-        {filteredSales.map(sale => (
-          <SaleCard key={sale.id} sale={sale} />
-        ))}
-      </SimpleGrid>
-    </VStack>
+      {filteredSales.length === 0 ? (
+        <Text textAlign="center" color="gray.500" py={8}>
+          Nenhuma venda encontrada.
+        </Text>
+      ) : (
+        <Box overflowX="auto">
+          <Table variant="simple">
+            <Thead>
+              <Tr>
+                <Th>Data</Th>
+                <Th>Produtos</Th>
+                <Th>Pagamento</Th>
+                <Th>Entrega</Th>
+                <Th isNumeric>Total</Th>
+                <Th width="100px">Ações</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {filteredSales.map((sale) => (
+                <Tr key={sale.id}>
+                  <Td>{formatDate(sale.created_at)}</Td>
+                  <Td>
+                    <Box>
+                      {sale.products.map((product, index) => (
+                        <Text key={index} fontSize="sm">
+                          {product.quantity}x {product.name}
+                        </Text>
+                      ))}
+                    </Box>
+                  </Td>
+                  <Td>
+                    <Badge colorScheme="brand" variant="subtle">
+                      {sale.payment_method}
+                    </Badge>
+                  </Td>
+                  <Td>
+                    <Badge colorScheme={sale.delivery ? "green" : "gray"} variant="subtle">
+                      {sale.delivery ? "Sim" : "Não"}
+                    </Badge>
+                  </Td>
+                  <Td isNumeric>{formatCurrency(sale.total)}</Td>
+                  <Td>
+                    <IconButton
+                      aria-label="Excluir venda"
+                      icon={<FiTrash2 />}
+                      size="sm"
+                      colorScheme="red"
+                      variant="ghost"
+                      onClick={() => handleDelete(sale)}
+                    />
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </Box>
+      )}
+    </Container>
   );
 };
 

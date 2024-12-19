@@ -10,9 +10,10 @@ import {
   FormControl,
   FormLabel,
   Input,
-  Select,
   VStack,
   useToast,
+  InputGroup,
+  InputLeftAddon,
 } from '@chakra-ui/react';
 import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
@@ -28,36 +29,34 @@ const ExpenseModal = ({ isOpen, onClose, expense }: ExpenseModalProps) => {
   const { addExpense, updateExpense } = useApp();
   const toast = useToast();
 
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
-  const [category, setCategory] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [expenseData, setExpenseData] = useState({
+    description: '',
+    amount: '',
+  });
 
   useEffect(() => {
     if (expense) {
-      setDescription(expense.description);
-      setAmount(expense.amount.toString());
-      setCategory(expense.category);
-      setDate(new Date(expense.date).toISOString().slice(0, 10));
+      setExpenseData({
+        description: expense.description,
+        amount: expense.amount.toString(),
+      });
     } else {
-      setDescription('');
-      setAmount('');
-      setCategory('');
-      setDate(new Date().toISOString().slice(0, 10));
+      setExpenseData({
+        description: '',
+        amount: '',
+      });
     }
   }, [expense]);
 
   const handleSubmit = async () => {
     try {
-      const expenseData = {
-        description,
-        amount: Number(amount),
-        category,
-        date: new Date(date).toISOString(),
+      const data = {
+        description: expenseData.description.trim(),
+        amount: Number(expenseData.amount),
       };
 
       if (expense) {
-        await updateExpense({ ...expenseData, id: expense.id });
+        await updateExpense({ ...data, id: expense.id });
         toast({
           title: 'Despesa atualizada',
           description: 'A despesa foi atualizada com sucesso.',
@@ -66,7 +65,7 @@ const ExpenseModal = ({ isOpen, onClose, expense }: ExpenseModalProps) => {
           isClosable: true,
         });
       } else {
-        await addExpense(expenseData);
+        await addExpense(data);
         toast({
           title: 'Despesa adicionada',
           description: 'A despesa foi adicionada com sucesso.',
@@ -99,52 +98,25 @@ const ExpenseModal = ({ isOpen, onClose, expense }: ExpenseModalProps) => {
             <FormControl>
               <FormLabel>Descrição</FormLabel>
               <Input
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Digite a descrição"
+                value={expenseData.description}
+                onChange={(e) => setExpenseData({ ...expenseData, description: e.target.value })}
+                placeholder="Digite a descrição da despesa"
               />
             </FormControl>
 
             <FormControl>
               <FormLabel>Valor</FormLabel>
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-              />
-            </FormControl>
-
-            <FormControl>
-              <FormLabel>Categoria</FormLabel>
-              <Select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                placeholder="Selecione a categoria"
-              >
-                <option value="Aluguel">Aluguel</option>
-                <option value="Energia">Energia</option>
-                <option value="Água">Água</option>
-                <option value="Internet">Internet</option>
-                <option value="Insumos">Insumos</option>
-                <option value="Equipamentos">Equipamentos</option>
-                <option value="Manutenção">Manutenção</option>
-                <option value="Marketing">Marketing</option>
-                <option value="Salários">Salários</option>
-                <option value="Impostos">Impostos</option>
-                <option value="Outros">Outros</option>
-              </Select>
-            </FormControl>
-
-            <FormControl>
-              <FormLabel>Data</FormLabel>
-              <Input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
+              <InputGroup>
+                <InputLeftAddon>R$</InputLeftAddon>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={expenseData.amount}
+                  onChange={(e) => setExpenseData({ ...expenseData, amount: e.target.value })}
+                  placeholder="0.00"
+                />
+              </InputGroup>
             </FormControl>
           </VStack>
         </ModalBody>

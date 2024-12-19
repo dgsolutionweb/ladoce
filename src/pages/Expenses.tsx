@@ -1,179 +1,155 @@
 import {
   Box,
   Button,
-  Grid,
-  HStack,
-  Icon,
-  SimpleGrid,
-  Text,
-  VStack,
-  useColorModeValue,
-  Badge,
-  Menu,
-  MenuButton,
-  MenuList,
-  MenuItem,
+  Container,
+  Flex,
+  Heading,
+  Table,
+  Thead,
+  Tbody,
+  Tr,
+  Th,
+  Td,
   IconButton,
-  Tooltip,
+  useDisclosure,
+  useToast,
+  Text,
   Input,
   InputGroup,
   InputLeftElement,
-  useDisclosure,
 } from '@chakra-ui/react';
-import { FiDollarSign, FiSearch, FiPlus, FiMoreVertical, FiEdit2, FiTrash2, FiCalendar, FiTag } from 'react-icons/fi';
-import { useApp } from '../contexts/AppContext';
-import { formatCurrency, formatDate } from '../utils/format';
+import { FiEdit2, FiTrash2, FiPlus, FiSearch } from 'react-icons/fi';
 import { useState } from 'react';
-import { Expense } from '../types';
+import { useApp } from '../contexts/AppContext';
 import ExpenseModal from '../components/ExpenseModal';
+import { Expense } from '../types';
+import { formatCurrency, formatDate } from '../utils/format';
 
 const Expenses = () => {
   const { expenses, deleteExpense } = useApp();
   const { isOpen, onOpen, onClose } = useDisclosure();
-  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const bgCard = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.200', 'gray.700');
-  const iconBg = useColorModeValue('brand.50', 'brand.900');
-  const iconColor = useColorModeValue('brand.600', 'brand.200');
-  const textColor = useColorModeValue('gray.600', 'gray.400');
+  const [currentExpense, setCurrentExpense] = useState<Expense | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const toast = useToast();
 
   const handleEdit = (expense: Expense) => {
-    setSelectedExpense(expense);
+    setCurrentExpense(expense);
     onOpen();
   };
 
   const handleDelete = async (expense: Expense) => {
     if (window.confirm(`Tem certeza que deseja excluir esta despesa?`)) {
-      await deleteExpense(expense.id);
+      try {
+        await deleteExpense(expense.id);
+        toast({
+          title: 'Despesa excluída',
+          description: 'A despesa foi excluída com sucesso.',
+          status: 'success',
+          duration: 3000,
+          isClosable: true,
+        });
+      } catch (error) {
+        toast({
+          title: 'Erro',
+          description: error instanceof Error ? error.message : 'Erro ao excluir despesa',
+          status: 'error',
+          duration: 3000,
+          isClosable: true,
+        });
+      }
     }
   };
 
-  const handleAdd = () => {
-    setSelectedExpense(null);
+  const handleAddNew = () => {
+    setCurrentExpense(null);
     onOpen();
   };
 
   const filteredExpenses = expenses
-    .filter(expense =>
-      expense.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      expense.category.toLowerCase().includes(searchQuery.toLowerCase())
+    .filter((expense) =>
+      expense.description.toLowerCase().includes(searchTerm.toLowerCase())
     )
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-  const ExpenseCard = ({ expense }: { expense: Expense }) => (
-    <Box
-      p={6}
-      bg={bgCard}
-      borderRadius="xl"
-      borderWidth="1px"
-      borderColor={borderColor}
-      transition="all 0.2s"
-      _hover={{
-        transform: 'translateY(-4px)',
-        shadow: 'lg',
-      }}
-    >
-      <HStack justify="space-between" mb={4}>
-        <HStack spacing={4}>
-          <Box
-            p={3}
-            borderRadius="xl"
-            bg={iconBg}
-            color={iconColor}
-            display="flex"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <Icon as={FiDollarSign} boxSize={5} />
-          </Box>
-          <VStack align="start" spacing={1}>
-            <Text fontSize="lg" fontWeight="semibold">
-              {expense.description}
-            </Text>
-            <HStack spacing={4} color={textColor}>
-              <HStack spacing={2}>
-                <Icon as={FiCalendar} boxSize={4} />
-                <Text fontSize="sm">{formatDate(expense.date)}</Text>
-              </HStack>
-              <HStack spacing={2}>
-                <Icon as={FiTag} boxSize={4} />
-                <Text fontSize="sm">{expense.category}</Text>
-              </HStack>
-            </HStack>
-          </VStack>
-        </HStack>
-        <Menu>
-          <MenuButton
-            as={IconButton}
-            icon={<FiMoreVertical />}
-            variant="ghost"
-            size="sm"
-            aria-label="Opções"
-          />
-          <MenuList>
-            <MenuItem icon={<FiEdit2 />} onClick={() => handleEdit(expense)}>
-              Editar
-            </MenuItem>
-            <MenuItem icon={<FiTrash2 />} onClick={() => handleDelete(expense)} color="red.500">
-              Excluir
-            </MenuItem>
-          </MenuList>
-        </Menu>
-      </HStack>
-
-      <Box>
-        <Text fontSize="sm" color={textColor} mb={1}>
-          Valor
-        </Text>
-        <Text fontSize="xl" fontWeight="bold" color="red.500">
-          {formatCurrency(expense.amount)}
-        </Text>
-      </Box>
-    </Box>
-  );
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return (
-    <VStack spacing={8} align="stretch">
-      <HStack justify="space-between">
-        <Text fontSize="2xl" fontWeight="bold">
-          Despesas
-        </Text>
+    <Container maxW="container.xl" py={8}>
+      <Flex justify="space-between" align="center" mb={8}>
+        <Heading size="lg">Despesas</Heading>
         <Button
           leftIcon={<FiPlus />}
           colorScheme="brand"
-          onClick={handleAdd}
+          onClick={handleAddNew}
         >
           Nova Despesa
         </Button>
-      </HStack>
+      </Flex>
 
-      <Box>
+      <Box mb={8}>
         <InputGroup>
           <InputLeftElement pointerEvents="none">
-            <Icon as={FiSearch} color="gray.400" />
+            <FiSearch color="gray.300" />
           </InputLeftElement>
           <Input
             placeholder="Buscar despesas..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
         </InputGroup>
       </Box>
 
-      <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
-        {filteredExpenses.map(expense => (
-          <ExpenseCard key={expense.id} expense={expense} />
-        ))}
-      </SimpleGrid>
+      {filteredExpenses.length === 0 ? (
+        <Text textAlign="center" color="gray.500" py={8}>
+          Nenhuma despesa encontrada.
+        </Text>
+      ) : (
+        <Box overflowX="auto">
+          <Table variant="simple">
+            <Thead>
+              <Tr>
+                <Th>Data</Th>
+                <Th>Descrição</Th>
+                <Th isNumeric>Valor</Th>
+                <Th width="100px">Ações</Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {filteredExpenses.map((expense) => (
+                <Tr key={expense.id}>
+                  <Td>{formatDate(expense.created_at)}</Td>
+                  <Td>{expense.description}</Td>
+                  <Td isNumeric>{formatCurrency(expense.amount)}</Td>
+                  <Td>
+                    <IconButton
+                      aria-label="Editar despesa"
+                      icon={<FiEdit2 />}
+                      size="sm"
+                      colorScheme="brand"
+                      variant="ghost"
+                      mr={2}
+                      onClick={() => handleEdit(expense)}
+                    />
+                    <IconButton
+                      aria-label="Excluir despesa"
+                      icon={<FiTrash2 />}
+                      size="sm"
+                      colorScheme="red"
+                      variant="ghost"
+                      onClick={() => handleDelete(expense)}
+                    />
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </Box>
+      )}
 
       <ExpenseModal
         isOpen={isOpen}
         onClose={onClose}
-        expense={selectedExpense}
+        expense={currentExpense}
       />
-    </VStack>
+    </Container>
   );
 };
 
